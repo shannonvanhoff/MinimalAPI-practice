@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
+using DishesAPI.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,12 +94,23 @@ app.MapGet("/dishes/{dishid:guid}", async Task<Results<NotFound, Ok<DishDto>>> (
         return TypedResults.NotFound();
     }
     return TypedResults.Ok(mapper.Map<DishDto>( dishEntity));
-});
+}).WithName("GetDish");
 app.MapGet("/dishes/{dishid}/ingrediants", async (DishesDbContext dishesDbContext, Guid dishid) =>
 {
     return (await dishesDbContext.Dishes.Include(d => d.Ingredients).FirstOrDefaultAsync(d=>d.Id==dishid))?.Ingredients;
 });
 
+
+app.MapPost("/dishes", async (DishesDbContext dishesDbContext, IMapper mapper, DishForCreationDto dishForCreationDto/*,LinkGenerator linkGenerator, HttpContext httpContext*/) =>
+{
+    var dishEntity = mapper.Map<Dish>(dishForCreationDto);
+    dishesDbContext.Add(dishEntity);
+    await dishesDbContext.SaveChangesAsync();
+    var dishToReturn = mapper.Map<DishDto>(dishEntity);
+    //var linkToDish = linkGenerator.GetUriByName(httpContext, "GetDish", new { dishId = dishToReturn.Id });
+    return TypedResults.CreatedAtRoute(dishToReturn, "GetDish",new { dishId = dishToReturn.Id });
+
+});
 using (var serviceScope = app.Services.GetService<IServiceScopeFactory>().CreateScope())
 {
     var context = serviceScope.ServiceProvider.GetRequiredService<DishesDbContext>();
