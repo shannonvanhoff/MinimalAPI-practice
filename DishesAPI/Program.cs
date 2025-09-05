@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using AutoMapper;
 using DishesAPI.Models;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,14 +25,10 @@ var app = builder.Build();
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
+app.MapGet("/dishes", async(DishesDbContext dishesDbContext,ClaimsPrincipal claimsPrincipal,IMapper mapper, string? name) =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/dishes", async(DishesDbContext dishesDbContext) =>
-{
-    return await dishesDbContext.Dishes.ToListAsync();
+    Console.WriteLine($"user not authenticated?{claimsPrincipal.Identity?.IsAuthenticated}");
+    return mapper.Map<IEnumerable<DishDto>>(await dishesDbContext.Dishes.Where(d => name ==null || d.Name.Contains(name)).ToListAsync());
 
 });
 app.MapGet("/dishes/{dishid:guid}", async (DishesDbContext dishesDbContext,IMapper mapper, Guid dishid) =>
