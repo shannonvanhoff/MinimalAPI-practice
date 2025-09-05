@@ -24,13 +24,65 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 
 app.UseHttpsRedirection();
-
-app.MapGet("/dishes", async(DishesDbContext dishesDbContext,ClaimsPrincipal claimsPrincipal,IMapper mapper, string? name) =>
+app.MapGet("/dishes", async (DishesDbContext dishesDbContext,ClaimsPrincipal claimsPrincipal, IMapper mapper, string ? search, string? sortBy, string? sortOrder, int pageNumber = 1, int pageSize = 5) =>
 {
-    Console.WriteLine($"user not authenticated?{claimsPrincipal.Identity?.IsAuthenticated}");
-    return mapper.Map<IEnumerable<DishDto>>(await dishesDbContext.Dishes.Where(d => name ==null || d.Name.Contains(name)).ToListAsync());
+    Console.WriteLine($"user not authenticated? {claimsPrincipal.Identity?.IsAuthenticated}");
 
+    // 1. Base query
+    var query = dishesDbContext.Dishes.AsQueryable();
+
+    // 2. Filtering / Searching
+    if (!string.IsNullOrWhiteSpace(search))
+    {
+        query = query.Where(d => d.Name.Contains(search));
+    }
+
+    // 3. Sorting
+    if (!string.IsNullOrWhiteSpace(sortBy))
+    {
+        switch (sortBy.ToLower())
+        {
+            case "name":
+                query = sortOrder?.ToLower() == "desc"
+                    ? query.OrderByDescending(d => d.Name)
+                    : query.OrderBy(d => d.Name);
+                break;
+
+            case "id":
+                query = sortOrder?.ToLower() == "desc"
+                    ? query.OrderByDescending(d => d.Id)
+                    : query.OrderBy(d => d.Id);
+                break;
+
+            default:
+                query = query.OrderBy(d => d.Name); // fallback
+                break;
+        }
+    }
+    else
+    {
+        query = query.OrderBy(d => d.Name); // default sort
+    }
+
+    // 4. Paging
+    var totalCount = await query.CountAsync();
+    var dishes = await query
+        .Skip((pageNumber - 1) * pageSize)
+        .Take(pageSize)
+        .ToListAsync();
+
+    // 5. Return paged response
+    var result = new
+    {
+        TotalCount = totalCount,
+        PageNumber = pageNumber,
+        PageSize = pageSize,
+        Items = mapper.Map<IEnumerable<DishDto>>(dishes)
+    };
+
+    return Results.Ok(result);
 });
+
 app.MapGet("/dishes/{dishid:guid}", async (DishesDbContext dishesDbContext,IMapper mapper, Guid dishid) =>
 {
     return mapper.Map<DishDto>( await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == dishid));
