@@ -5,6 +5,8 @@ using AutoMapper;
 using DishesAPI.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -80,12 +82,17 @@ app.MapGet("/dishes", async (DishesDbContext dishesDbContext,ClaimsPrincipal cla
         Items = mapper.Map<IEnumerable<DishDto>>(dishes)
     };
 
-    return Results.Ok(result);
+    return TypedResults.Ok(result);
 });
 
-app.MapGet("/dishes/{dishid:guid}", async (DishesDbContext dishesDbContext,IMapper mapper, Guid dishid) =>
+app.MapGet("/dishes/{dishid:guid}", async Task<Results<NotFound, Ok<DishDto>>> (DishesDbContext dishesDbContext,IMapper mapper, Guid dishid) =>
 {
-    return mapper.Map<DishDto>( await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == dishid));
+    var dishEntity = await dishesDbContext.Dishes.FirstOrDefaultAsync(d => d.Id == dishid);
+    if (dishEntity == null)
+    {
+        return TypedResults.NotFound();
+    }
+    return TypedResults.Ok(mapper.Map<DishDto>( dishEntity));
 });
 app.MapGet("/dishes/{dishid}/ingrediants", async (DishesDbContext dishesDbContext, Guid dishid) =>
 {
