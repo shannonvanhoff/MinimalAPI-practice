@@ -111,6 +111,11 @@ app.MapPost("/dishes", async (DishesDbContext dishesDbContext, IMapper mapper, D
     return TypedResults.CreatedAtRoute(dishToReturn, "GetDish",new { dishId = dishToReturn.Id });
 
 });
+
+app.MapPut("/dishes/{dishId:guid}", async (DishesDbContext dishesDbCOntext, IMapper mapper, Guid dishId, DishForUpdateDto dishToUpdate) =>
+{
+
+});
 using (var serviceScope = app.Services.GetService<IServiceScopeFactory>().CreateScope())
 {
     var context = serviceScope.ServiceProvider.GetRequiredService<DishesDbContext>();
